@@ -22,7 +22,7 @@ dag = DAG(dag_id='report_vk',
 
 def send_report_to_vk():
     # Чтение данных
-    path = '/mnt/c/Users/rasha/Karpov Courses/ads_data_.csv'
+    path = '/mnt/c/Users/rasha/ads_data_.csv'
     ads_data = pd.read_csv(path)
     print('Данные считаны')
     # Расчет метрик
@@ -91,7 +91,7 @@ def send_report_to_vk():
     print('Файл сохранен')
 
     # Отправляем отчет в личные сообщения в VK
-    with open('/mnt/c/Users/rasha/Karpov Courses/vk_token.json') as src:
+    with open('/mnt/c/Users/rasha//vk_token.json') as src:
         credentials = json.load(src)
     token = credentials['token']
     my_id = 144925167
