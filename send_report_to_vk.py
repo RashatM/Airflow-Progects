@@ -87,7 +87,7 @@ def get_ads_data():
     Клики: {clicks_today} ({diff_clicks}%)
     CTR: {ctr_today} ({diff_ctr}%)'''
     print('Отчет создан')
-    # Сохраняем отчет
+    # Сохранение отчета
     with open(f'report_{current_date}.txt', 'w', encoding='UTF-8') as file:
         file.write(message)
     print('Файл сохранен')
@@ -95,11 +95,13 @@ def get_ads_data():
 
 
 def send_vk(message=get_ads_data()):
-    # Отправляем отчет в личные сообщения в VK
-    with open('/mnt/c/Users/rasha/Karpov Courses/vk_token.json') as src:
+    # Отправление отчета в личные сообщения в VK
+    # Получение параметров для авторизации
+    with open('/mnt/c/Users/rasha/vk_token.json') as src:
         credentials = json.load(src)
     token = credentials['token']
     my_id = 144925167
+    # Создание сессии и отправка сообщения
     vk_session = vk_api.VkApi(token=token)
     vk = vk_session.get_api()
     vk.messages.send(user_id=my_id,
@@ -109,11 +111,13 @@ def send_vk(message=get_ads_data()):
 
 
 def send_skype(message=get_ads_data()):
-    # Отправляем отчет в личные сообщения в Skype
-    with open('/mnt/c/Users/rasha/Karpov Courses/skype_token.json') as src:
+    # Отправление отчета в личные сообщения в Skype
+    # Получение параметров для авторизации
+    with open('/mnt/c/Users/rasha/skype_token.json') as src:
         credentials = json.load(src)
     user = credentials['login']
     password = credentials['password']
+    # Создание сессии и отправка сообщения
     sk = Skype(user, password)
     contact = sk.contacts['live:.cid.10f9b6c3afc1acf6']
     contact.chat.sendMsg(message)
@@ -121,19 +125,20 @@ def send_skype(message=get_ads_data()):
 
 
 def send_telegram():
-    # Отправляем отчет в личные сообщения в Telegram
-    with open('/mnt/c/Users/rasha/Karpov Courses/skype_token.json') as src:
+    # Отправление отчета в личные сообщения в Telegram
+    # Получение параметров для авторизации
+    with open('/mnt/c/Users/rasha/skype_token.json') as src:
         data = json.load(src)
     token = data['token']
     chat_id = data['chat_id']
     current_date = date.today()
     message = f'Ежедневный отчет за {current_date}  успешно разослан!'
-
+    
     params = {
         'chat_id': chat_id,
         'text': message
     }
-
+    # Формирование полного адреса и отправка get-запроса
     base_url = f'https://api.telegram.org/bot{token}/'
     url = base_url + 'sendMessage?' + urlencode(params)
     resp = requests.get(url)
