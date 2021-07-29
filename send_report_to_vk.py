@@ -5,7 +5,10 @@ import vk_api
 import random
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-
+from airflow.operators.email import EmailOperator
+from skpy import Skype
+import requests
+from urllib.parse import urlencode
 
 default_args = {
     'owner': 'rashat_musin',
@@ -14,15 +17,15 @@ default_args = {
     'retries': 0
 }
 
-dag = DAG(dag_id='report_vk',
+dag = DAG(dag_id='ads_report',
           default_args=default_args,
           catchup=False,
           schedule_interval='00 14 * * *')
 
 
-def send_report_to_vk():
+def get_ads_data():
     # Чтение данных
-    path = '/mnt/c/Users/rasha/ads_data_.csv'
+    path = '/mnt/c/Users/rasha/Karpov Courses/ads_data_.csv'
     ads_data = pd.read_csv(path)
     print('Данные считаны')
     # Расчет метрик
@@ -84,14 +87,16 @@ def send_report_to_vk():
     Клики: {clicks_today} ({diff_clicks}%)
     CTR: {ctr_today} ({diff_ctr}%)'''
     print('Отчет создан')
-
     # Сохраняем отчет
     with open(f'report_{current_date}.txt', 'w', encoding='UTF-8') as file:
         file.write(message)
     print('Файл сохранен')
+    return message
 
+
+def send_vk(message=get_ads_data()):
     # Отправляем отчет в личные сообщения в VK
-    with open('/mnt/c/Users/rasha//vk_token.json') as src:
+    with open('/mnt/c/Users/rasha/Karpov Courses/vk_token.json') as src:
         credentials = json.load(src)
     token = credentials['token']
     my_id = 144925167
@@ -100,11 +105,64 @@ def send_report_to_vk():
     vk.messages.send(user_id=my_id,
                      message=message,
                      random_id=random.randint(1, 2 ** 31))
-    print('Отчет отправлен')
+    print('Отчет успешно отправлен в VK')
 
 
-t1 = PythonOperator(task_id='ads_report',
-                    python_callable=send_report_to_vk,
+def send_skype(message=get_ads_data()):
+    # Отправляем отчет в личные сообщения в Skype
+    with open('/mnt/c/Users/rasha/Karpov Courses/skype_token.json') as src:
+        credentials = json.load(src)
+    user = credentials['login']
+    password = credentials['password']
+    sk = Skype(user, password)
+    contact = sk.contacts['live:.cid.10f9b6c3afc1acf6']
+    contact.chat.sendMsg(message)
+    print('Отчет успешно отправлен в VK')
+
+
+def send_telegram():
+    # Отправляем отчет в личные сообщения в Telegram
+    with open('/mnt/c/Users/rasha/Karpov Courses/skype_token.json') as src:
+        data = json.load(src)
+    token = data['token']
+    chat_id = data['chat_id']
+    current_date = date.today()
+    message = f'Ежедневный отчет за {current_date}  успешно разослан!'
+
+    params = {
+        'chat_id': chat_id,
+        'text': message
+    }
+
+    base_url = f'https://api.telegram.org/bot{token}/'
+    url = base_url + 'sendMessage?' + urlencode(params)
+    resp = requests.get(url)
+
+
+t1 = PythonOperator(task_id='get_ads_data',
+                    python_callable=get_ads_data,
                     dag=dag)
+
+t2 = PythonOperator(task_id='send_vk',
+                    python_callable=send_vk,
+                    dag=dag)
+
+# Отправляем отчет на email, предварительно настроив перед этим smtp в airflow.cfg
+t3 = EmailOperator(task_id='send_email',
+                   to='rashat_musin@mail.ru',
+                   subject='Report',
+                   html_content=f"<h3>{get_ads_data()}</h3>",
+                   dag=dag)
+
+t4 = PythonOperator(task_id='send_skype',
+                    python_callable=send_skype,
+                    dag=dag)
+
+t5 = PythonOperator(task_id='send_telegram',
+                    python_callable=send_telegram,
+                    dag=dag)
+
+
+t1 >> [t2, t3, t4] >> t5
 
 
