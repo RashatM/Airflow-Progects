@@ -23,7 +23,7 @@ dag = DAG(dag_id='ads_report',
           schedule_interval='00 14 * * *')
 
 
-def get_ads_data():
+def get_ads_data(**context):
     # Чтение данных
     path = '/mnt/c/Users/rasha/Karpov Courses/ads_data_.csv'
     ads_data = pd.read_csv(path)
@@ -91,10 +91,18 @@ def get_ads_data():
     with open(f'report_{current_date}.txt', 'w', encoding='UTF-8') as file:
         file.write(message)
     print('Файл сохранен')
-    return message
+    # Пушим сообщение для получения в других задачах
+    context['ti'].xcom_push(key='message', value=str(message))
 
 
-def send_vk(message=get_ads_data()):
+# Функция для получения запушенного значения
+def pull_value(**context):
+    return context['ti'].xcom_pull(key='message')
+
+
+def send_vk(**context):
+    # Получаем значение, стоит отметить,что можно было просто передать в параметры данной функции результат выполнения get_ads_data()
+    message = pull_value(**context)
     # Отправление отчета в личные сообщения в VK
     # Получение параметров для авторизации
     with open('/mnt/c/Users/rasha/vk_token.json') as src:
@@ -110,7 +118,9 @@ def send_vk(message=get_ads_data()):
     print('Отчет успешно отправлен в VK')
 
 
-def send_skype(message=get_ads_data()):
+def send_skype(**context):
+    # Получаем значение
+    message = pull_value(**context)
     # Отправление отчета в личные сообщения в Skype
     # Получение параметров для авторизации
     with open('/mnt/c/Users/rasha/skype_token.json') as src:
@@ -128,12 +138,12 @@ def send_telegram():
     # Отправление отчета в личные сообщения в Telegram
     # Получение параметров для авторизации
     with open('/mnt/c/Users/rasha/skype_token.json') as src:
-        data = json.load(src)
-    token = data['token']
-    chat_id = data['chat_id']
+        credentials = json.load(src)
+    token = credentials['token']
+    chat_id = credentials['chat_id']
     current_date = date.today()
     message = f'Ежедневный отчет за {current_date}  успешно разослан!'
-    
+
     params = {
         'chat_id': chat_id,
         'text': message
@@ -144,30 +154,29 @@ def send_telegram():
     resp = requests.get(url)
 
 
-t1 = PythonOperator(task_id='get_ads_data',
-                    python_callable=get_ads_data,
-                    dag=dag)
+with dag:
+    t1 = PythonOperator(task_id='get_ads_data',
+                        python_callable=get_ads_data,
+                        dag=dag)
 
-t2 = PythonOperator(task_id='send_vk',
-                    python_callable=send_vk,
-                    dag=dag)
+    t2 = PythonOperator(task_id='send_vk',
+                        python_callable=send_vk,
+                        dag=dag)
 
-# Отправляем отчет на email, предварительно настроив перед этим smtp в airflow.cfg
-t3 = EmailOperator(task_id='send_email',
-                   to='rashat_musin@mail.ru',
-                   subject='Report',
-                   html_content=f"<h3>{get_ads_data()}</h3>",
-                   dag=dag)
+    # Отправляем отчет на email, предварительно настроив перед этим smtp в airflow.cfg
+    t3 = EmailOperator(task_id='send_email',
+                       to='rashat_musin@mail.ru',
+                       subject='Report',
+                       html_content="<h3>{{task_instance.xcom_pull(key='message') }}</h3>",
+                       dag=dag)
 
-t4 = PythonOperator(task_id='send_skype',
-                    python_callable=send_skype,
-                    dag=dag)
+    t4 = PythonOperator(task_id='send_skype',
+                        python_callable=send_skype,
+                        dag=dag)
 
-t5 = PythonOperator(task_id='send_telegram',
-                    python_callable=send_telegram,
-                    dag=dag)
-
+    t5 = PythonOperator(task_id='send_telegram',
+                        python_callable=send_telegram,
+                        dag=dag)
 
 t1 >> [t2, t3, t4] >> t5
-
 
