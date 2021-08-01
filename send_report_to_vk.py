@@ -131,7 +131,7 @@ def send_skype(**context):
     sk = Skype(user, password)
     contact = sk.contacts['live:.cid.10f9b6c3afc1acf6']
     contact.chat.sendMsg(message)
-    print('Отчет успешно отправлен в VK')
+    print('Отчет успешно отправлен в Skype')
 
 
 def send_telegram():
@@ -151,7 +151,7 @@ def send_telegram():
     # Формирование полного адреса и отправка get-запроса
     base_url = f'https://api.telegram.org/bot{token}/'
     url = base_url + 'sendMessage?' + urlencode(params)
-    resp = requests.get(url)
+    requests.get(url)
 
 
 with dag:
